@@ -31,16 +31,18 @@ style=alphabetic,
 \usepackage{footmisc} % für multiple referenced Footnotes
 \usepackage{graphicx}
 \usepackage{tabularx} % für schöner umgebrochene Tabellen
+\usepackage{listings} % um Codezeilen anzuzeigen
 
 \hyphenation{Mathe-matik wieder-gewinnen} % Für korrekte Silbentrennung
 
 \title{LoRaWAN Projekt: Sensortree}
-\author{Jakob Weirich (\textit{Matrikelnummer}), Michel Schwarz (\textit{Matrikelnummer}) \\und Robert Deppe (\textit{649819})}
+\author{Jakob Weirich (\textit{797740}), Michel Schwarz (\textit{Matrikelnummer}) \\und Robert Deppe (\textit{649819})}
 
 
 \onehalfspacing 
 
 \begin{document}
+\setlength{\parindent}{0cm} % Keinen Einzug
 \pagenumbering{gobble}  % Keine Seitenzahlen
 \onehalfspacing
 \maketitle
@@ -66,17 +68,69 @@ Aufgabenstellung
 \pagenumbering{arabic}
 
 \section{Einleitung}
-Einleitung
+In den letzten Jahren ist Hardware für spezielle Anwendungsfälle durch sinkende Preise und unmittelbarere Verkaufsketten zugänglicher für amateur- und semiprofessionelle Anwendungsfälle geworden. % TODO: CITATION NEEDED
+% TODO: Beschreibung Entstehung LoraWAN
+Diese Entwicklung förderte eine breite popularisierung von Smart-Home Systemen und verteilten Sensornetzwerken, sowohl kommerziell als auch in einem privatem Umfeld. % TODO: CITATION NEEDED
+
 \newpage
 
-\section{Beschreibung der Ergebnisse}
+\section{Hardware der Sensorstation}
+% Notizen für Arduino - Hardware
+
+\section{Software}
+
+% TODO: Allgemeiner Aufbau mit Diagramm
+% Dabei daran denken, dass DB, Front- und Backend nicht auf einem Server liegen müssen!
+% Zusammenspiel mit TTN-Webhook beschreiben
+
+\subsection{Arduino-Software}
+
+% Fehler im Code: Die Initialisierung im Code war nicht korrekt. 
+% Es fehlte das sensorValue auf den Wert 0 in der Loop() %Funktion zurück gesetzt wird. 
+% Dadurch wurde der sensorValue endlos aufsummiert und es wurden falsche Werte ausgegeben.
+
+% Um die korrekten Werte für unseren Sensor bestimmen zu können haben wir aus der Grafik Fig. 4 - Sensitivity to various gases (Rs/Ro) den Wert für das Verhältnis von Rs/R0.
+
+% R0 wird mit dem folgenden Programmteil ausgerechnet.
+% R0 = RS_air/21.0;
 
 
-\subsection{Überblick}
+\subsection{Back-End}
+Der Zugriff auf die Datenbank erfolgt über eine REST-API, welche in Form einer separaten Anwendung läuft.
+Im Falle unserer Umsetzung erfolgt dieses auf dem selben Server, kann jedoch auch auf mehrere Systeme verteilt werden um unterschiedlichen Anforderungen gerecht zu werden.
 
+\subsection{Front-End}
+Die Basis für das Front-End bietet die JavaScript Bibliothek \href{https://reactjs.org}{React.js} - oft einfach nur React genannt, mit dessen Hilfe die Erstellung von dynamischen Benutzeroberflächen vereinfacht wird.
+Entwickelt wurde das Open-Source Webframework ursprünglich von Facebook, weshalb es erstmalig für den Facebook Newsfeed sowie später für Instagram verwendet wurde.
+Seitdem hat es stark an Popularität gewonnen und kommt heute auf zahlreichen Webseiten wie \textit{Airbnb}, \textit{Dropbox}, \textit{Microsoft}, \textit{Yahoo} oder \textit{Netflix} zum Einsatz.\\
+
+Ein Vorteil von React gegenüber klassischen HTML basierten Anwendungen besteht darin, dass eine Modularisierung des JavaScript Codes in sogenannte Komponenten vorgenommen wird, welche von React später als HTML-Markup gerendert werden. In einer Komponente gehört die Logik bzw. die Methoden sowie das Markup in Form von JSX zusammen. Damit wird uns erleichtert einen besseren Überblick über den Code zu behalten und ermöglicht eine funktionierende Komponente in Zukunft immer wieder zu verwenden. Das Festhalten und Verändern eines gewissen Zustandes innerhalb einer Komponente, bietet die Grundlage für die dynamische SVG-Grafik mit der die Datenpunkte dargestellt werden sowie das Menü oder die Zeitraum-Auswahl.\\
+
+DOM Manipulationen sind rechenintensiv und reduzieren damit die Reaktionsgeschwindigkeit der Seite oft erheblich. Deshalb pflegt React einen virtuellen DOM, also eine interne Repräsentation des DOMs, an dem die Manipulationen vorerst geschehen. Die Differenz zwischen dem Zustand des virtuellen DOMs und dem des DOMs bestimmt letztendlich, welche Veränderungen am realen DOM vorgenommen werden. Somit muss nicht bei jeder Veränderung die gesamte Grafik erneut berechnet werden und die Seite bleibt performant.\\
+
+Neben den genannten Vorteilen ermöglicht React mit seinen Tools ebenso eine hervorragende Kompatibilität mit unterschiedlichen Endgeräten.\\
+
+Um die Vektorgrafik (SVG) zu erzeugen, wird auf eine weitere JavaScript-Bibliothek namens D3.js zurückgegriffen. Der Ansatz von D3 ist, dass der DOM basierend auf einem vorhandenen Datensatz verändert wird. Das Kernkonzept, des sogenannten "Data-Bindings", weist in unserem Fall jedem visuellen Punkt-Element genau ein Daten-Element zu. Verändert sich der Datensatz, werden die Attribute der vorhandenen Punkte aktualisiert oder, sofern sich die Anzahl der Daten verändert hat, neue Punkte erzeugt bzw. entfernt.
+Weitere bereitgestellte Funktionen von D3 erleichtern Berechnungen für die Skalen sowie das Zeichnen von Achsen.
+
+\subsection{Datenbank}
+Um die gemessenen Daten zu sammeln und im Front-End visualisieren zu können, musste ein DBMS integriert werden. 
+Dazu wurde die dokumentenorientierte Datenbank MongoDB gewählt. Diese ist sehr flexibel und strukturlos verwendbar. 
+Die darin enthaltenen Dokumente werden in einer JSON-Struktur abgelegt, wobei hier jedes Dokument einen anderen Aufbau besitzen kann. 
+Die Struktur die unsere Dokumente in der Datenbank besitzen werden lediglich durch die Payload-Funktion von The Things Network vorgegeben. \\
+
+Um die Daten besser beibehalten zu können wurde auf dem Hochschulserver ein Replica-Set initialisiert. Das heißt, dass nicht nur eine einzelne Datenbank die Daten speichert, sondern das ein Cluster aus drei Datenbanken betrieben wird. Die beiden Replikanten, auch Secondarys genannt, erhalten von der primären Datenbank ein Oplog (operations log). Dieses beinhaltet alle Änderungen die in der Primären Datenbank durchgeführt wurden. Die beiden sekundären Datenbanken führen alle Aufzeichnungen aus dem Oplog durch und besitzen somit den gleichen Datenbestand wie die primäre Datenbank.\\
+
+Dieses Cluster wurde initialisiert, um das System auf eine mögliche Verteilung vorzubereiten. Somit kann zu einem späteren Zeitpunkt eine Datenbank auf einem anderen Server betrieben werden und muss lediglich in das bisherige System integriert werden. Der nachfolgende Code zeigt, wie in einem Linux-System ein Keyfile erstellt wird um die Authentifizierung zwischen den Datenbanken zu gewährleisten.\\
+\begin{lstlisting}[language=bash]
+openssl rand -base64 756 > <path-to-keyfile>
+chmod 400 <path-to-keyfile>
+\end{lstlisting}
+
+\newpage
 \section{Fazit}
 
-\newpage
+
 \section{Ausblick}
 
 \newpage
